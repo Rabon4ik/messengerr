@@ -49,11 +49,21 @@ class Database:
 
     def get_history(self, user1: str, user2: str):
         rows = self.conn.execute("""
-            SELECT sender, content, timestamp FROM messages 
+            SELECT sender, content, timestamp 
+            FROM messages 
             WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?)
             ORDER BY timestamp
         """, (user1, user2, user2, user1)).fetchall()
-        return [{"from": r[0], "content": r[1], "time": r[2]} for r in rows]
+        
+       
+        return [
+            {
+                "from": row[0],
+                "content": row[1],
+                "time": row[2]
+            } 
+            for row in rows
+        ]
 
     def get_all_users(self):
         return [row[0] for row in self.conn.execute("SELECT username FROM users").fetchall()]
