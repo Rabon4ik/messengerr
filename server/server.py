@@ -31,7 +31,6 @@ class MessengerServer:
 
         while True:
             client_socket, addr = server_socket.accept()
-            logging.info(f"Новое подключение от {addr}")
             thread = threading.Thread(target=self.handle_client, args=(client_socket, addr), daemon=True)
             thread.start()
 
@@ -45,44 +44,61 @@ class MessengerServer:
                 
                 msg = Message.from_json(data)
 
+                # --- Регистрация ---
                 if msg.type == "register":
                     if self.db.register_user(msg.from_user, msg.content):
-                        client_socket.send(Message(type="register", success=True, content="Регистрация успешна").to_json().encode())
+                        client_socket.send(Message(type="register", success=True, content="Регистрация прошла успешно").to_json().encode())
                     else:
                         client_socket.send(Message(type="register", success=False, content="Пользователь уже существует").to_json().encode())
 
+                # --- Логин ---
                 elif msg.type == "login":
                     if self.db.check_login(msg.from_user, msg.content):
                         username = msg.from_user
                         with self.lock:
                             self.clients[username] = client_socket
-                        logging.info(f"✅ {username} вошёл в систему")
+                        logging.info(f"✅ Пользователь {username} вошёл")
                         
-                        # Отправляем историю и список пользователей
-                        client_socket.send(Message(type="user_list", users=self.db.get_all_users()).to_json().encode())
+                        client_socket.send(Message(
+                            type="login", 
+                            success=True, 
+                            content=f"Добро пожаловать, {username}!"
+                        ).to_json().encode())
+                        
+                        # Отправляем список онлайн
+                        with self.lock:
+                            client_socket.send(Message(type="user_list", users=list(self.clients.keys())).to_json().encode())
                     else:
                         client_socket.send(Message(type="login", success=False, content="Неверный логин или пароль").to_json().encode())
 
+                # --- Отправка сообщения ---
                 elif msg.type == "message" and username:
                     self.db.save_message(username, msg.to_user, msg.content)
-                    msg.from_user = username
-                    
-                    # Отправляем получателю
+                    msg.from_user = username   # На всякий случай
+
+                    sent = False
                     with self.lock:
                         if msg.to_user in self.clients:
-                            self.clients[msg.to_user].send(msg.to_json().encode())
-                    
+                            try:
+                                self.clients[msg.to_user].send(msg.to_json().encode())
+                                sent = True
+                            except:
+                                del self.clients[msg.to_user]
+
                     # Подтверждение отправителю
-                    client_socket.send(Message(type="message_sent", success=True).to_json().encode())
+                    if sent:
+                        client_socket.send(Message(type="message_sent", success=True, content="Сообщение доставлено").to_json().encode())
+                    else:
+                        client_socket.send(Message(type="error", success=False, content=f"Пользователь {msg.to_user} не в сети").to_json().encode())
 
         except Exception as e:
-            logging.error(f"Ошибка с {username or addr}: {e}")
+            logging.error(f"Ошибка у {username or addr}: {e}")
         finally:
-            if username and username in self.clients:
+            if username:
                 with self.lock:
                     self.clients.pop(username, None)
+                logging.info(f"❌ {username} отключился")
             client_socket.close()
-            logging.info(f"Клиент {username or addr} отключился")
 
 
 if __name__ == "__main__":
@@ -90,4 +106,4 @@ if __name__ == "__main__":
     try:
         server.start()
     except KeyboardInterrupt:
-        logging.info("Сервер остановлен")
+        logging.info("🛑 Сервер остановлен вручную")
