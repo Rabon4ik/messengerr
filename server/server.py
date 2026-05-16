@@ -1,0 +1,93 @@
+import socket
+import threading
+import logging
+from database import Database
+from common.protocol import Message
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s',
+    handlers=[
+        logging.FileHandler("logs/server.log", encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+class MessengerServer:
+    def __init__(self, host='0.0.0.0', port=5555):
+        self.host = host
+        self.port = port
+        self.db = Database()
+        self.clients = {}          # username -> socket
+        self.lock = threading.Lock()
+
+    def start(self):
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((self.host, self.port))
+        server_socket.listen(15)
+        
+        logging.info(f"🚀 Сервер запущен на {self.host}:{self.port}")
+
+        while True:
+            client_socket, addr = server_socket.accept()
+            logging.info(f"Новое подключение от {addr}")
+            thread = threading.Thread(target=self.handle_client, args=(client_socket, addr), daemon=True)
+            thread.start()
+
+    def handle_client(self, client_socket, addr):
+        username = None
+        try:
+            while True:
+                data = client_socket.recv(4096).decode('utf-8').strip()
+                if not data:
+                    break
+                
+                msg = Message.from_json(data)
+
+                if msg.type == "register":
+                    if self.db.register_user(msg.from_user, msg.content):
+                        client_socket.send(Message(type="register", success=True, content="Регистрация успешна").to_json().encode())
+                    else:
+                        client_socket.send(Message(type="register", success=False, content="Пользователь уже существует").to_json().encode())
+
+                elif msg.type == "login":
+                    if self.db.check_login(msg.from_user, msg.content):
+                        username = msg.from_user
+                        with self.lock:
+                            self.clients[username] = client_socket
+                        logging.info(f"✅ {username} вошёл в систему")
+                        
+                        # Отправляем историю и список пользователей
+                        client_socket.send(Message(type="user_list", users=self.db.get_all_users()).to_json().encode())
+                    else:
+                        client_socket.send(Message(type="login", success=False, content="Неверный логин или пароль").to_json().encode())
+
+                elif msg.type == "message" and username:
+                    self.db.save_message(username, msg.to_user, msg.content)
+                    msg.from_user = username
+                    
+                    # Отправляем получателю
+                    with self.lock:
+                        if msg.to_user in self.clients:
+                            self.clients[msg.to_user].send(msg.to_json().encode())
+                    
+                    # Подтверждение отправителю
+                    client_socket.send(Message(type="message_sent", success=True).to_json().encode())
+
+        except Exception as e:
+            logging.error(f"Ошибка с {username or addr}: {e}")
+        finally:
+            if username and username in self.clients:
+                with self.lock:
+                    self.clients.pop(username, None)
+            client_socket.close()
+            logging.info(f"Клиент {username or addr} отключился")
+
+
+if __name__ == "__main__":
+    server = MessengerServer()
+    try:
+        server.start()
+    except KeyboardInterrupt:
+        logging.info("Сервер остановлен")
