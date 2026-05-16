@@ -116,7 +116,7 @@ class MessengerServer:
 
 
 if __name__ == "__main__":
-    server = MessengerServer()
+    server = MessengerServer(host='0.0.0.0', port=5555)
     try:
         server.start()
     except KeyboardInterrupt:
