@@ -96,8 +96,14 @@ class MessengerClient:
             elif msg.type == "message_sent":
                 console.print("[green]✓ Отправлено[/]")
 
-            elif msg.type in ["login", "register"] and getattr(msg, 'success', True):
-                console.print(f"[bold green]✅ {msg.content or 'Успешно'}[/]")
+            elif msg.type in ["login", "register"]:
+                self._auth_ok = getattr(msg, 'success', True)
+                self._auth_event.set()  # будим поток start()
+                if self._auth_ok:
+                    console.print(f"[bold green]✅ {msg.content}[/]")
+                else:
+                    console.print(f"[red]❌ {msg.content}[/]")
+                return 
 
             elif msg.type == "error" or not getattr(msg, 'success', True):
                 console.print(f"[red]❌ {msg.content}[/]")
@@ -213,21 +219,31 @@ class MessengerClient:
 
     def start(self):
         self.connect()
+        self._auth_event = threading.Event()
+        self._auth_ok = False
+        self._pending_username = None
+
+        threading.Thread(target=self.receive, daemon=True).start()
 
         while not self.username:
             action = Prompt.ask("register или login", choices=["register", "login", "r", "l"])
             action = "register" if action in ["r", "register"] else "login"
 
-            self.username = Prompt.ask("Имя пользователя")
+            username = Prompt.ask("Имя пользователя")
             password = Prompt.ask("Пароль", password=True)
 
-            self.socket.send(Message(type=action, from_user=self.username, content=password).to_json().encode())
-            time.sleep(0.7)
+            self._pending_username = username
+            self._auth_event.clear()
+
+            self.socket.send(Message(type=action, from_user=username, content=password).to_json().encode())
+
+            self._auth_event.wait(timeout=5)  # ждём ответа сервера
+
+            if self._auth_ok:
+                self.username = username  # только теперь
+
         self.socket.send(Message(type="chat_list").to_json().encode())
-
-        threading.Thread(target=self.receive, daemon=True).start()
         self.send_message()
-
 
 if __name__ == "__main__":
     host = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
