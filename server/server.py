@@ -99,7 +99,15 @@ class MessengerServer:
                         ).to_json().encode())
                     else:
                         client_socket.send(Message(type="error", content="Используйте: !history @username").to_json().encode())
+                elif msg.type == "chat_list" and username:
+                    chats = self.db.get_user_chats(username)
 
+                    client_socket.send(
+                        Message(
+                            type="chat_list",
+                            users=chats
+                        ).to_json().encode()
+                    )
                 # Список онлайн
                 elif msg.type == "user_list":
                     with self.lock:

@@ -11,6 +11,8 @@ console = Console()
 
 class MessengerClient:
     def __init__(self, host='127.0.0.1', port=5555):
+        self.current_chat = None
+        self.chat_list = []
         self.host = host
         self.port = port
         self.socket = None
@@ -99,6 +101,19 @@ class MessengerClient:
 
             elif msg.type == "error" or not getattr(msg, 'success', True):
                 console.print(f"[red]❌ {msg.content}[/]")
+            elif msg.type == "chat_list":
+                self.chat_list = msg.users or []
+
+                console.print("\n[bold cyan]=== Ваши чаты ===[/]")
+
+                if not self.chat_list:
+                    console.print("[dim]Чатов пока нет[/]")
+                else:
+                    for i, user in enumerate(self.chat_list, 1):
+                        console.print(f"{i}. {user}")
+
+                console.print("\n/new username")
+                console.print("/open номер")
 
             else:
                 console.print(f"[dim]Неизвестный тип: {msg.type}[/]")
@@ -110,16 +125,21 @@ class MessengerClient:
 
     def send_message(self):
         console.print("[bold]Команды:[/]")
-        console.print("   @username текст сообщения")
-        console.print("   !online")
-        console.print("   !history @username\n")
+        console.print("   /new username")
+        console.print("   /open номер")
+        console.print("   /back")
+        console.print("   /online")
 
         while self.running:
             try:
                 text = input().strip()
                 if not text:
                     continue
-
+                if text == "/back":
+                    self.current_chat = None
+                    console.print("\n[yellow]Вы вышли из чата[/]")
+                    continue
+              
                 if text.lower().startswith("!history"):
                     parts = text.split(maxsplit=1)
                     if len(parts) < 2 or not parts[1].startswith("@"):
@@ -132,21 +152,60 @@ class MessengerClient:
                 if text.lower() in ["!online", "/online"]:
                     self.socket.send(Message(type="user_list").to_json().encode())
                     continue
+                if text.startswith("/new"):
+                    parts = text.split()
 
-                if not text.startswith("@"):
-                    console.print("[red]Сообщение должно начинаться с @username[/]")
+                    if len(parts) < 2:
+                        continue
+
+                    self.current_chat = parts[1]
+
+                    if self.current_chat not in self.chat_list:
+                        self.chat_list.append(self.current_chat)
+
+                    console.print(f"\n[bold green]Новый чат: {self.current_chat}[/]")
+
+                    self.socket.send(
+                        Message(
+                            type="history",
+                            to_user=self.current_chat
+                        ).to_json().encode()
+                    )
+
                     continue
+                if text.startswith("/open"):
+                    parts = text.split()
 
-                parts = text[1:].split(" ", 1)
-                if len(parts) < 2:
-                    console.print("[red]Формат: @username текст[/]")
+                    if len(parts) < 2:
+                        continue
+
+                    idx = int(parts[1]) - 1
+
+                    if idx < 0 or idx >= len(self.chat_list):
+                        continue
+
+                    self.current_chat = self.chat_list[idx]
+
+                    self.socket.send(
+                        Message(
+                            type="history",
+                            to_user=self.current_chat
+                        ).to_json().encode()
+                    )
+
+                    console.print(f"\n[bold green]Чат с {self.current_chat}[/]")
                     continue
+                if self.current_chat:
+                    msg = Message(
+                        type="message",
+                        to_user=self.current_chat,
+                        content=text
+                    )
 
-                to_user = parts[0]
-                content = parts[1]
-
-                msg = Message(type="message", from_user=self.username, to_user=to_user, content=content)
-                self.socket.send(msg.to_json().encode())
+                    self.socket.send(msg.to_json().encode())
+                else:
+                    console.print("[red]Сначала откройте чат[/]")
+                    continue
 
             except Exception as e:
                 console.print(f"[red]Ошибка отправки: {e}[/]")
@@ -164,6 +223,7 @@ class MessengerClient:
 
             self.socket.send(Message(type=action, from_user=self.username, content=password).to_json().encode())
             time.sleep(0.7)
+        self.socket.send(Message(type="chat_list").to_json().encode())
 
         threading.Thread(target=self.receive, daemon=True).start()
         self.send_message()

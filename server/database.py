@@ -67,3 +67,17 @@ class Database:
 
     def get_all_users(self):
         return [row[0] for row in self.conn.execute("SELECT username FROM users").fetchall()]
+    
+    def get_user_chats(self, username: str):
+        rows = self.conn.execute("""
+            SELECT DISTINCT
+                CASE
+                    WHEN sender = ? THEN receiver
+                    ELSE sender
+                END as chat_user
+            FROM messages
+            WHERE sender = ? OR receiver = ?
+            ORDER BY chat_user
+        """, (username, username, username)).fetchall()
+
+        return [row[0] for row in rows]
