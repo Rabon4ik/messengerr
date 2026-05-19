@@ -22,18 +22,33 @@ class MessengerServer:
         self.lock = threading.Lock()
 
     def start(self):
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((self.host, self.port))
-        server_socket.listen(15)
-        
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen(15)
         logging.info(f"🚀 Сервер запущен на {self.host}:{self.port}")
 
-        while True:
-            client_socket, addr = server_socket.accept()
-            logging.info(f"Новое подключение от {addr}")
-            thread = threading.Thread(target=self.handle_client, args=(client_socket, addr), daemon=True)
-            thread.start()
+        try:
+            while True:
+                client_socket, addr = self.server_socket.accept()
+                logging.info(f"Новое подключение от {addr}")
+                thread = threading.Thread(target=self.handle_client, args=(client_socket, addr), daemon=True)
+                thread.start()
+        except KeyboardInterrupt:
+            self.shutdown()
+
+    def shutdown(self):
+        logging.info("🛑 Завершение работы — отключаем клиентов...")
+        with self.lock:
+            for username, sock in list(self.clients.items()):
+                try:
+                    sock.send(Message(type="shutdown", content="Сервер отключён").to_json().encode())
+                    sock.close()
+                except:
+                    pass
+            self.clients.clear()
+        self.server_socket.close()
+        logging.info("🛑 Сервер остановлен")
 
     def handle_client(self, client_socket, addr):
         username = None

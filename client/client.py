@@ -159,6 +159,15 @@ class MessengerClient:
                     self.draw_main_screen()
                 console.print(f"\n[bold red]❌ {msg.content}[/]")
                 console.print("[dim]Нажмите Enter чтобы продолжить...[/]")
+            elif msg.type == "shutdown":
+                clear()
+                console.print(Panel(
+                    "[bold red]Сервер отключён[/]",
+                    border_style="red"
+                ))
+                self.running = False
+                self.socket.close()
+                sys.exit(0)
         except Exception as e:
             console.print(f"[red]Ошибка handle_message: {e}[/]")
 
