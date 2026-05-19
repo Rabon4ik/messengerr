@@ -152,12 +152,12 @@ class MessengerClient:
                 self.draw_main_screen()
 
             elif msg.type == "error":
-                console.print(f"[red]❌ {msg.content}[/]")
-                if self.current_chat and self.current_chat not in (self.chat_list[:-1] if self.chat_list else []):
+                if self.current_chat and self.current_chat not in self.chat_list[:-1]:
                     self.chat_list = [u for u in self.chat_list if u != self.current_chat]
                     self.current_chat = None
                     self.draw_main_screen()
-
+                console.print(f"\n[bold red]❌ {msg.content}[/]")
+                console.print("[dim]Нажмите Enter чтобы продолжить...[/]")
         except Exception as e:
             console.print(f"[red]Ошибка handle_message: {e}[/]")
 
@@ -178,6 +178,8 @@ class MessengerClient:
             try:
                 text = self._input_line().strip()
                 if not text:
+                    if not self.current_chat:
+                        self.draw_main_screen()
                     continue
 
                 # ── Выход из чата ──
