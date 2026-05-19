@@ -152,6 +152,18 @@ class MessengerClient:
                 self.chat_list = msg.users or []
                 self.draw_main_screen()
 
+            elif msg.type == "status":
+                is_online = getattr(msg, 'online', False)
+                # Обновляем статус если мы сейчас в чате с этим человеком
+                if self.current_chat and msg.from_user == self.current_chat:
+                    self._chat_online = is_online
+                    status = "[bold green]● онлайн[/]" if is_online else "[dim]○ оффлайн[/]"
+                    console.print(Panel(
+                        f"[bold]Чат с [cyan]{self.current_chat}[/cyan][/]  {status}  [dim](/back — выйти)[/]",
+                        border_style="magenta",
+                        box=box.ROUNDED,
+                    ))
+
             elif msg.type == "error":
                 if self.current_chat and self.current_chat not in self.chat_list[:-1]:
                     self.chat_list = [u for u in self.chat_list if u != self.current_chat]

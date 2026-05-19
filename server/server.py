@@ -49,7 +49,16 @@ class MessengerServer:
             self.clients.clear()
         self.server_socket.close()
         logging.info("🛑 Сервер остановлен")
-
+    def broadcast_status(self, username: str, online: bool):
+        """Рассылаем всем онлайн-пользователям изменение статуса."""
+        msg = Message(type="status", from_user=username, online=online)
+        with self.lock:
+            for user, sock in list(self.clients.items()):
+                if user != username:
+                    try:
+                        sock.send(msg.to_json().encode())
+                    except:
+                        self.clients.pop(user, None)
     def handle_client(self, client_socket, addr):
         username = None
         try:
@@ -66,6 +75,7 @@ class MessengerServer:
                             self.clients[username] = client_socket
                             user_list = list(self.clients.keys())
                             logging.info(f"✅ {username} зарегистрирован и вошёл")
+                            self.broadcast_status(username, online=True)
                         client_socket.send(Message(type="register", success=True, content="Регистрация прошла успешно").to_json().encode())
                         client_socket.send(Message(type="user_list", users=user_list).to_json().encode())
                     else:
@@ -77,6 +87,7 @@ class MessengerServer:
                             self.clients[username] = client_socket
                             user_list = list(self.clients.keys())
                         logging.info(f"✅ {username} вошёл")
+                        self.broadcast_status(username, online=True)
                         client_socket.send(Message(type="login", success=True, content=f"Добро пожаловать, {username}!").to_json().encode())
                         client_socket.send(Message(type="user_list", users=list(self.clients.keys())).to_json().encode())
                     else:
@@ -121,6 +132,7 @@ class MessengerServer:
             if username:
                 with self.lock:
                     self.clients.pop(username, None)
+                self.broadcast_status(username, online=False) 
                 logging.info(f"❌ {username} отключился")
             client_socket.close()
 
