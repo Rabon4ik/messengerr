@@ -64,9 +64,13 @@ class Database:
             } 
             for row in rows
         ]
-
-    def get_all_users(self):
-        return [row[0] for row in self.conn.execute("SELECT username FROM users").fetchall()]
+    def user_exists(self, username: str) -> bool:
+        result = self.conn.execute(
+            "SELECT 1 FROM users WHERE username=?", (username,)
+        ).fetchone()
+        return result is not None
+        def get_all_users(self):
+            return [row[0] for row in self.conn.execute("SELECT username FROM users").fetchall()]
     
     def get_user_chats(self, username: str):
         rows = self.conn.execute("""

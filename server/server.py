@@ -86,8 +86,12 @@ class MessengerServer:
                 elif msg.type == "history" and username:
                     target = msg.to_user
                     if target:
-                        history = self.db.get_history(username, target)
-                        client_socket.send(Message(type="history", to_user=target, history=history).to_json().encode())
+                        # Проверяем что пользователь существует в БД
+                        if not self.db.user_exists(target):
+                            client_socket.send(Message(type="error", content=f"Пользователь '{target}' не найден").to_json().encode())
+                        else:
+                            history = self.db.get_history(username, target)
+                            client_socket.send(Message(type="history", to_user=target, history=history).to_json().encode())
                     else:
                         client_socket.send(Message(type="error", content="Укажите пользователя").to_json().encode())
 
