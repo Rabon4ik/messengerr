@@ -30,6 +30,7 @@ class MessengerClient:
         self.buffer = ""
         self._auth_event = threading.Event()
         self._auth_ok = False
+        self._chat_online = False
 
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -60,11 +61,11 @@ class MessengerClient:
         console.print("[dim]/online[/]          — кто в сети")
         console.print("[dim]─────────────────────────────[/]\n")
 
-    def draw_chat_screen(self, history=None):
-        """Экран диалога."""
+    def draw_chat_screen(self, history=None, online=False):
         clear()
+        status = "[bold green]● онлайн[/]" if online else "[dim]○ оффлайн[/]"
         console.print(Panel(
-            f"[bold]Чат с [cyan]{self.current_chat}[/cyan][/]  [dim](/back — выйти)[/]",
+            f"[bold]Чат с [cyan]{self.current_chat}[/cyan][/]  {status}  [dim](/back — выйти)[/]",
             border_style="magenta",
             box=box.ROUNDED,
         ))
@@ -126,8 +127,8 @@ class MessengerClient:
                     console.print(f"\n[bold yellow]🔔 Новое сообщение от {msg.from_user}[/]")
 
             elif msg.type == "history":
-                # Получили историю — рисуем экран чата
-                self.draw_chat_screen(history=msg.history)
+                self._chat_online = getattr(msg, 'online', False)
+                self.draw_chat_screen(history=msg.history, online=self._chat_online)
 
             elif msg.type == "user_list":
                 if not self.current_chat:

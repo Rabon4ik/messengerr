@@ -78,22 +78,19 @@ class MessengerServer:
                                 sent = True
                             except:
                                 self.clients.pop(msg.to_user, None)
-                    if sent:
-                        client_socket.send(Message(type="message_sent", success=True).to_json().encode())
-                    else:
-                        client_socket.send(Message(type="error", content=f"{msg.to_user} не в сети").to_json().encode())
+               
+                    client_socket.send(Message(type="message_sent", success=True).to_json().encode())
 
                 elif msg.type == "history" and username:
                     target = msg.to_user
                     if target:
-                        # Проверяем что пользователь существует в БД
                         if not self.db.user_exists(target):
                             client_socket.send(Message(type="error", content=f"Пользователь '{target}' не найден").to_json().encode())
                         else:
                             history = self.db.get_history(username, target)
-                            client_socket.send(Message(type="history", to_user=target, history=history).to_json().encode())
-                    else:
-                        client_socket.send(Message(type="error", content="Укажите пользователя").to_json().encode())
+                            with self.lock:
+                                is_online = target in self.clients
+                            client_socket.send(Message(type="history", to_user=target, history=history, online=is_online).to_json().encode())
 
                 elif msg.type == "chat_list" and username:
                     chats = self.db.get_user_chats(username)  # Нужно добавить этот метод в Database

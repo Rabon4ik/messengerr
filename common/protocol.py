@@ -13,6 +13,7 @@ class Message:
     users: Optional[List[str]] = None
     history: Optional[List[dict]] = None
     success: bool = True
+    online: Optional[bool] = None
 
     def to_json(self) -> str:
         data = {k: v for k, v in self.__dict__.items() if v is not None}
@@ -22,4 +23,6 @@ class Message:
 
     @staticmethod
     def from_json(data: str) -> 'Message':
-        return Message(**json.loads(data))
+        raw = json.loads(data)
+        known = {k: v for k, v in raw.items() if k in Message.__dataclass_fields__}
+        return Message(**known)
