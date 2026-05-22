@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import time
+import ssl 
 from common.protocol import Message
 from rich.console import Console
 from rich.prompt import Prompt
@@ -42,8 +43,12 @@ class MessengerClient:
             os.system('color')
 
     def connect(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((self.host, self.port))
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        raw_socket.connect((self.host, self.port))
+        self.socket = context.wrap_socket(raw_socket, server_hostname=self.host)
 
     # ─── Экраны ───────────────────────────────────────────────────────────────
 

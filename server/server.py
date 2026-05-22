@@ -2,6 +2,7 @@ import socket
 import threading
 import logging
 import json
+import ssl
 from database import Database
 from common.protocol import Message
 
@@ -31,6 +32,9 @@ class MessengerServer:
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(15)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain('server.crt', 'server.key')
+        self.server_socket = context.wrap_socket(self.server_socket, server_side=True)
         logging.info(f"🚀 Сервер запущен на {self.host}:{self.port}")
 
         try:
