@@ -279,7 +279,7 @@ class MessengerServer:
                     group_members=[m['username'] for m in group['members']],
                     content=f"{username} добавил {target}"
                 )
-                self.send_to_group(gid, notify)
+                self.send_to_group(gid, notify, exclude=target)
                 # Приглашение новому участнику
                 with self.lock:
                     if target in self.clients:

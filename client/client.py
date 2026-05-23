@@ -84,6 +84,7 @@ class MessengerClient:
         console.print("[dim]/newgroup <название>[/]    — создать группу")
         console.print("[dim]/opengroup <г-номер>[/]    — открыть группу")
         console.print("[dim]/online[/]                 — кто в сети")
+        console.print("[dim]/refresh[/]                — обновить список чатов")
         console.print("[dim]──────────────────────────────────────[/]\n")
 
     def draw_chat_screen(self, history=None, online=False):
@@ -181,6 +182,8 @@ class MessengerClient:
 
             elif msg.type == "history":
                 self._chat_online = getattr(msg, 'online', False)
+                if self.current_chat and self.current_chat not in self.chat_list:
+                    self.chat_list.append(self.current_chat)
                 self.draw_chat_screen(history=msg.history, online=self._chat_online)
 
             elif msg.type == "group_history":
@@ -259,10 +262,9 @@ class MessengerClient:
                 sys.exit(0)
 
             elif msg.type == "error":
-                if self.current_chat and self.current_chat not in self.chat_list:
-                    self.chat_list = [u for u in self.chat_list if u != self.current_chat]
-                    self.current_chat = None
-                    self.draw_main_screen()
+                self.current_chat = None
+                self.current_group_id = None
+                self.current_group_name = None
                 console.print(f"\n[bold red]❌ {msg.content}[/]")
                 console.print("[dim]Нажмите Enter чтобы продолжить...[/]")
 
@@ -303,13 +305,13 @@ class MessengerClient:
                 if text.lower() in ["/online", "!online"]:
                     self.socket.send(Message(type="user_list").to_json().encode())
                     continue
-
+                if text == "/refresh":
+                    self.socket.send(Message(type="chat_list").to_json().encode())
+                    continue
                 if text.startswith("/new "):
                     target = text[5:].strip()
                     self.current_chat = target
                     self.current_group_id = None
-                    if target not in self.chat_list:
-                        self.chat_list.append(target)
                     self.socket.send(Message(type="history", to_user=target).to_json().encode())
                     continue
 

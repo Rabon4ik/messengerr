@@ -11,11 +11,16 @@ class Database:
         self.create_tables()
 
     @property
+
     def conn(self):
-        if not hasattr(self._local, 'conn'):
-            self._local.conn = sqlite3.connect(self.db_path)
-            self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
+        if not hasattr(self, '_conn'):
+            self._conn = sqlite3.connect(
+                self.db_path,
+                check_same_thread=False,
+                timeout=10
+            )
+            self._conn.row_factory = sqlite3.Row
+        return self._conn
 
     def create_tables(self):
         self.conn.executescript('''
