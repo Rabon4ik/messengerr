@@ -5,6 +5,50 @@ import json
 import ssl
 from database import Database
 from common.protocol import Message
+import os
+import sys
+import datetime
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
+os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(BASE_DIR, "logs", "server.log"), encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+def generate_cert():
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'localhost')])
+    cert = (x509.CertificateBuilder()
+        .subject_name(name).issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365))
+        .sign(key, hashes.SHA256()))
+    with open('server.key', 'wb') as f:
+        f.write(key.private_bytes(serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption()))
+    with open('server.crt', 'wb') as f:
+        f.write(cert.public_bytes(serialization.Encoding.PEM))
+    
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,6 +72,8 @@ class MessengerServer:
     # ─── Запуск / остановка ───────────────────────────────────────────────────
 
     def start(self):
+        if not os.path.exists("server.crt") or not os.path.exists("server.key"):
+            generate_cert()
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
