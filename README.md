@@ -148,30 +148,7 @@ messenger-server.exe
   /rename <название>     — переименовать группу (только админ)
   /back                  — вернуться на главный экран
 
----
 
-## 🗂️ Структура проекта
-
-Messenger/
-├── client/
-│   ├── __init__.py
-│   └── client.py          — клиентское приложение
-├── common/
-│   ├── __init__.py
-│   └── protocol.py        — протокол обмена сообщениями
-├── server/
-│   ├── __init__.py
-│   ├── server.py          — серверное приложение
-│   └── database.py        — работа с базой данных
-├── data/
-│   └── messenger.db       — база данных SQLite
-├── logs/
-│   └── server.log         — лог сервера
-├── server.crt             — TLS-сертификат
-├── server.key             — приватный ключ TLS
-├── requirements.txt       — зависимости
-├── run_client.sh          — запуск клиента (Linux)
-└── run_server.sh          — запуск сервера (Linux)
 
 ---
 
