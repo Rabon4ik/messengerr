@@ -39,31 +39,8 @@ cd messengerr
 
 pip install -r requirements.txt
 
-### 3. Сгенерируй TLS-сертификат (один раз)
 
-python -c "
-from cryptography import x509
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-import datetime, os
-
-key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'localhost')])
-cert = (x509.CertificateBuilder()
-    .subject_name(name).issuer_name(name)
-    .public_key(key.public_key())
-    .serial_number(x509.random_serial_number())
-    .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
-    .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365))
-    .sign(key, hashes.SHA256()))
-open('server.key','wb').write(key.private_bytes(serialization.Encoding.PEM,
-    serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption()))
-open('server.crt','wb').write(cert.public_bytes(serialization.Encoding.PEM))
-print('Сертификат создан')
-"
-
-### 4. Запусти сервер
+### 3. Запусти сервер
 
 Linux:
 bash run_server.sh
@@ -71,7 +48,7 @@ bash run_server.sh
 Windows:
 python server/server.py
 
-### 5. Запусти клиент
+### 4. Запусти клиент
 
 Linux:
 bash run_client.sh
@@ -86,7 +63,7 @@ python client/client.py 192.168.1.105 5555
 
 ## 📱 Android (Termux)
 
-1. Установи Termux из F-Droid (не из Play Market)
+1. Установи Termux 
 
 2. В Termux:
 pkg update && pkg install python
@@ -96,7 +73,7 @@ pip install rich cryptography
 termux-setup-storage
 
 4. Скопируй файлы client.py и common/protocol.py на телефон
-   (через Telegram или любым удобным способом)
+   
 
 5. Создай структуру папок:
 mkdir -p ~/messenger/common
@@ -123,8 +100,6 @@ Windows:
 messenger-client.exe
 messenger-server.exe
 
-Рядом с исполняемым файлом сервера обязательно должны находиться
-файлы server.key и server.crt.
 
 ---
 
@@ -170,18 +145,14 @@ messenger-server.exe
 Ошибка "unable to open database file"
 → Убедись что рядом с сервером существует папка data/
 
-Ошибка "No such file or directory" при запуске сервера
-→ Убедись что рядом с сервером находятся файлы server.crt и server.key
+
 
 Клиент не подключается к серверу
 → Проверь что сервер запущен и доступен по указанному IP
 → Убедись что порт 5555 не заблокирован брандмауэром
+→ Убедись что запущена только одна копия сервера
 
 База данных заблокирована ("database is locked")
 → Убедись что запущена только одна копия сервера
 
----
 
-## 📄 Лицензия
-
-MIT License — свободное использование, модификация и распространение.
